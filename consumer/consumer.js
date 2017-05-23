@@ -1,11 +1,10 @@
 #!/usr/bin/env node
 var os = require('os');
-const dgram = require('dgram');
-const server = dgram.createSocket('udp4');
+var dgram = require('dgram');
 const commandLineArgs = require('command-line-args');
 const getUsage = require('command-line-usage');
-const ifaces = os.networkInterfaces();
-const DEFAULT_DELAY = 2000;
+var client = dgram.createSocket('udp4');
+var ifaces = os.networkInterfaces();
 const DEFAULT_MCGROUP = '239.9.11.212';
 const DEFAULT_PORT = 2311;
 const DEFAULT_INTERFACE = (function() {
@@ -26,14 +25,13 @@ const optionDefinitions = [
     {name: 'help', alias: 'h', type: Boolean, description: 'Print this usage guide.'},
     {name: 'verbose', alias: 'v', type: Boolean},
     {name: 'mcgroup', alias: 'm', type: String, defaultOption: true, description: 'The multicast address to produce to.'},
-    {name: 'delay', alias: 'd', type: Number, description: `The delay in ms - if left out will be ${DEFAULT_DELAY}`},
     {name: 'interface', alias: 'i', type: String, description: `Interface to produce messages on - default is ${DEFAULT_INTERFACE.name}`},
     {name: 'port', alias: 'p', type: Number, description: `Port to produce messages on - default is ${DEFAULT_PORT}`}
 ];
 const sections = [
   {
-    header: 'Node.js multicast producer',
-    content: 'Produces multicast messages to the supplied multicast address at a specified delay.'
+    header: 'Node.js multicast consumer',
+    content: 'Consumes multicast messages to the supplied multicast address.'
   },
   {
     header: 'Options',
@@ -50,29 +48,20 @@ if (options.help) {
 const mcgroup = options.mcgroup ? options.mcgroup : DEFAULT_MCGROUP;
 const port = options.port ? options.port : DEFAULT_PORT;
 
-// get delay
-const delay = !options.delay || options.delay < 100 ? DEFAULT_DELAY : options.delay;
-
-// listen for errors
-server.on('error', (err) => {
-    console.log(`server error:\n${err.stack}`);
-    server.close();
+client.on('listening', function () {
+    var address = client.address();
+    console.log(`UDP Client listening on ${address.address}:${address.port} (local IP: ${DEFAULT_INTERFACE.address})`);
+    client.setBroadcast(true)
+    client.setMulticastTTL(128); 
+    client.addMembership(mcgroup, DEFAULT_INTERFACE.address);
 });
 
-// start producing
-const socket = dgram.createSocket('udp4');
-// listen for shutdown
-process.on( 'SIGINT', function() {
-    console.log( "\nGracefully shutting down from SIGINT (Ctrl-C)" );
-    server.close();
-    socket.close();
-    process.exit( );
-})
-console.log(`Multicast producer sending message with delay of ${delay} ms on multicast group ${mcgroup}:${port}`);
-let counter = 0;
-global.setInterval(() => {
-    counter++;
-    const msg = `Message no. ${counter}`;
-    socket.send(msg, port, mcgroup, () => console.log(`Sent multicast message (${msg})...`));
-}, delay);
+client.on('error', function onSocketError(err) {
+    console.log(`Socket error: ${err.message}`);
+});
 
+client.on('message', function (message, remote) {   
+    console.log(`MCast Msg: From: ${remote.address}:${remote.port} - ${message}`);
+});
+
+client.bind(port, "0.0.0.0");
