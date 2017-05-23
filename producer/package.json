@@ -1,0 +1,15 @@
+{
+  "name": "node_multicast_producer",
+  "version": "1.0.0",
+  "description": "Proff-of-concept of a node.js multicast producer",
+  "main": "producer.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "command-line-args": "^4.0.4",
+    "command-line-usage": "^4.0.0"
+  }
+}
