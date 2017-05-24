@@ -2,7 +2,6 @@
 var dgram = require('dgram');
 const commandLineArgs = require('command-line-args');
 const getUsage = require('command-line-usage');
-var client = dgram.createSocket('udp4');
 const common = require('../common');
 const DEFAULT_INTERFACE = common.getDefaultInterface();
 
@@ -30,24 +29,33 @@ if (options.help) {
     process.exit(0);
 }
 
-// get multicast address and port
+// get data based on command line input
 const mcgroup = options.mcgroup ? options.mcgroup : common.DEFAULT_MCGROUP;
 const port = options.port ? options.port : common.DEFAULT_PORT;
+const iface = options.interface ? common.getInterface(options.interface) : DEFAULT_INTERFACE;
+if (!iface) {
+    console.log(`ERROR - unable to find requested interface '${options.interface}' - aborting...`);
+    process.exit(-1);
+} else if (options.interface) {
+    console.log(`INFO - found requested interface '${options.interface}' (${iface.name} / ${iface.address})...`);
+} else {
+    console.log(`INFO - using default interface '${iface.name}' (${iface.name} / ${iface.address})...`);
+}
 
+// create socket
+const client = dgram.createSocket('udp4');
 client.on('listening', function () {
     var address = client.address();
     console.log(`UDP Client listening on ${address.address}:${address.port} (local IP: ${DEFAULT_INTERFACE.address})`);
-    client.setBroadcast(true)
-    client.setMulticastTTL(128); 
-    client.addMembership(mcgroup, DEFAULT_INTERFACE.address);
 });
 
+// listeners
 client.on('error', function onSocketError(err) {
     console.log(`Socket error: ${err.message}`);
 });
-
 client.on('message', function (message, remote) {   
     console.log(`MCast Msg: From: ${remote.address}:${remote.port} - ${message}`);
 });
-
-client.bind(port, "0.0.0.0");
+client.bind(port, () => {
+    client.addMembership(mcgroup);
+});

@@ -5,6 +5,7 @@ const commandLineArgs = require('command-line-args');
 const getUsage = require('command-line-usage');
 const common = require('../common');
 const DEFAULT_INTERFACE = common.getDefaultInterface();
+const getPort = require('get-port');
 
 // define args 
 const optionDefinitions = [
@@ -31,33 +32,50 @@ if (options.help) {
     process.exit(0);
 }
 
-// get multicast address and port
+// get data based on command line input
+const delay = !options.delay || options.delay < 100 ? common.DEFAULT_DELAY : options.delay;
+const iface = options.interface ? common.getInterface(options.interface) : DEFAULT_INTERFACE;
 const mcgroup = options.mcgroup ? options.mcgroup : common.DEFAULT_MCGROUP;
 const port = options.port ? options.port : common.DEFAULT_PORT;
 
-// get delay
-const delay = !options.delay || options.delay < 100 ? common.DEFAULT_DELAY : options.delay;
+if (!iface) {
+    console.log(`ERROR - unable to find requested interface '${options.interface}' - aborting...`);
+    process.exit(-1);
+} else if (options.interface) {
+    console.log(`INFO - found requested interface '${options.interface}' (${iface.name} / ${iface.address}:${port})...`);
+} else {
+    console.log(`INFO - using default interface '${iface.name}' (${iface.name} / ${iface.address}:${port})...`);
+}
 
-// listen for errors
-server.on('error', (err) => {
-    console.log(`server error:\n${err.stack}`);
-    server.close();
+// get port to send on
+getPort().then(producePort => {
+    console.log(`INFO - publishing on port ${producePort}...`);
+    
+    // listen for errors
+    server.on('error', (err) => {
+        console.log(`server error:\n${err.stack}`);
+        server.close();
+    });
+
+    // start producing
+    const socket = dgram.createSocket('udp4');
+
+    // listen for shutdown
+    process.on( 'SIGINT', function() {
+        console.log( "\nGracefully shutting down from SIGINT (Ctrl-C)" );
+        server.close();
+        socket.close();
+        process.exit( );
+    })
+    console.log(`Multicast producer sending message with delay of ${delay} ms on multicast group ${mcgroup}:${port}`);
+    let counter = 0;
+    socket.bind(producePort, () => {
+        setInterval(() => {
+            counter++;
+            const msg = `Message no. ${counter}`;
+            socket.send(msg, 0, msg.length, port, mcgroup, () => console.log(`Sent multicast message (${msg})...`));
+        }, delay);
+    });
+
 });
-
-// start producing
-const socket = dgram.createSocket('udp4');
-// listen for shutdown
-process.on( 'SIGINT', function() {
-    console.log( "\nGracefully shutting down from SIGINT (Ctrl-C)" );
-    server.close();
-    socket.close();
-    process.exit( );
-})
-console.log(`Multicast producer sending message with delay of ${delay} ms on multicast group ${mcgroup}:${port}`);
-let counter = 0;
-global.setInterval(() => {
-    counter++;
-    const msg = `Message no. ${counter}`;
-    socket.send(msg, port, mcgroup, () => console.log(`Sent multicast message (${msg})...`));
-}, delay);
 
