@@ -1,24 +1,10 @@
 #!/usr/bin/env node
-var os = require('os');
 var dgram = require('dgram');
 const commandLineArgs = require('command-line-args');
 const getUsage = require('command-line-usage');
 var client = dgram.createSocket('udp4');
-var ifaces = os.networkInterfaces();
-const DEFAULT_MCGROUP = '239.9.11.212';
-const DEFAULT_PORT = 2311;
-const DEFAULT_INTERFACE = (function() {
-    for (let i=0, count=Object.keys(ifaces).length; i<count; i++) {
-        const iname = Object.keys(ifaces)[i];
-        for (let j=0; j<ifaces[iname].length; j++) {
-            const elem = ifaces[iname][j];
-            if (elem.mac !== '00:00:00:00:00:00' && elem.family === 'IPv4') {
-                // found first non-loopback ipv4 interface
-                return {'name': iname, 'address': elem.address};
-            }
-        }
-    }
-})();
+const common = require('../common');
+const DEFAULT_INTERFACE = common.getDefaultInterface();
 
 // define args 
 const optionDefinitions = [
@@ -26,7 +12,7 @@ const optionDefinitions = [
     {name: 'verbose', alias: 'v', type: Boolean},
     {name: 'mcgroup', alias: 'm', type: String, defaultOption: true, description: 'The multicast address to produce to.'},
     {name: 'interface', alias: 'i', type: String, description: `Interface to produce messages on - default is ${DEFAULT_INTERFACE.name}`},
-    {name: 'port', alias: 'p', type: Number, description: `Port to produce messages on - default is ${DEFAULT_PORT}`}
+    {name: 'port', alias: 'p', type: Number, description: `Port to produce messages on - default is ${common.DEFAULT_PORT}`}
 ];
 const sections = [
   {
@@ -45,8 +31,8 @@ if (options.help) {
 }
 
 // get multicast address and port
-const mcgroup = options.mcgroup ? options.mcgroup : DEFAULT_MCGROUP;
-const port = options.port ? options.port : DEFAULT_PORT;
+const mcgroup = options.mcgroup ? options.mcgroup : common.DEFAULT_MCGROUP;
+const port = options.port ? options.port : common.DEFAULT_PORT;
 
 client.on('listening', function () {
     var address = client.address();

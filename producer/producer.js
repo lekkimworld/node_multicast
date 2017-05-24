@@ -1,34 +1,19 @@
 #!/usr/bin/env node
-var os = require('os');
 const dgram = require('dgram');
 const server = dgram.createSocket('udp4');
 const commandLineArgs = require('command-line-args');
 const getUsage = require('command-line-usage');
-const ifaces = os.networkInterfaces();
-const DEFAULT_DELAY = 2000;
-const DEFAULT_MCGROUP = '239.9.11.212';
-const DEFAULT_PORT = 2311;
-const DEFAULT_INTERFACE = (function() {
-    for (let i=0, count=Object.keys(ifaces).length; i<count; i++) {
-        const iname = Object.keys(ifaces)[i];
-        for (let j=0; j<ifaces[iname].length; j++) {
-            const elem = ifaces[iname][j];
-            if (elem.mac !== '00:00:00:00:00:00' && elem.family === 'IPv4') {
-                // found first non-loopback ipv4 interface
-                return {'name': iname, 'address': elem.address};
-            }
-        }
-    }
-})();
+const common = require('../common');
+const DEFAULT_INTERFACE = common.getDefaultInterface();
 
 // define args 
 const optionDefinitions = [
     {name: 'help', alias: 'h', type: Boolean, description: 'Print this usage guide.'},
     {name: 'verbose', alias: 'v', type: Boolean},
     {name: 'mcgroup', alias: 'm', type: String, defaultOption: true, description: 'The multicast address to produce to.'},
-    {name: 'delay', alias: 'd', type: Number, description: `The delay in ms - if left out will be ${DEFAULT_DELAY}`},
+    {name: 'delay', alias: 'd', type: Number, description: `The delay in ms - if left out will be ${common.DEFAULT_DELAY}`},
     {name: 'interface', alias: 'i', type: String, description: `Interface to produce messages on - default is ${DEFAULT_INTERFACE.name}`},
-    {name: 'port', alias: 'p', type: Number, description: `Port to produce messages on - default is ${DEFAULT_PORT}`}
+    {name: 'port', alias: 'p', type: Number, description: `Port to produce messages on - default is ${common.DEFAULT_PORT}`}
 ];
 const sections = [
   {
@@ -47,11 +32,11 @@ if (options.help) {
 }
 
 // get multicast address and port
-const mcgroup = options.mcgroup ? options.mcgroup : DEFAULT_MCGROUP;
-const port = options.port ? options.port : DEFAULT_PORT;
+const mcgroup = options.mcgroup ? options.mcgroup : common.DEFAULT_MCGROUP;
+const port = options.port ? options.port : common.DEFAULT_PORT;
 
 // get delay
-const delay = !options.delay || options.delay < 100 ? DEFAULT_DELAY : options.delay;
+const delay = !options.delay || options.delay < 100 ? common.DEFAULT_DELAY : options.delay;
 
 // listen for errors
 server.on('error', (err) => {
